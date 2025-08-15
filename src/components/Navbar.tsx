@@ -13,7 +13,7 @@ type LinkDef = { href: `#${string}`; label: string };
 const links: LinkDef[] = [
   { href: "#inicio", label: "Inicio" },
   { href: "#emisoras", label: "Emisoras" },
-  { href: "#noticias", label: "Noticias" },
+  //{ href: "#noticias", label: "Noticias" },//
   { href: "#nosotros", label: "Nosotros" },
   { href: "#galeria", label: "Galería" },
   { href: "#contacto", label: "Contacto" },

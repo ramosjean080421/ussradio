@@ -1,145 +1,173 @@
-// src/app/api/news/route.ts
-import { NextRequest, NextResponse } from "next/server";
-import Parser from "rss-parser";
-import * as cheerio from "cheerio";
+import { NextResponse } from "next/server";
 
-// ❗ Habilita caché a 12 horas en el handler (por URL/página)
-// (Quita cualquier `export const dynamic = "force-dynamic"` que tuvieras antes)
-export const revalidate = 43200; // 12h en segundos
+export const revalidate = 43200; // 12h - literal para Vercel
 
-type ECItem = {
+type NewsItem = {
   id: string;
   title: string;
-  link: string;
-  isoDate?: string;
-  description?: string;
-  image?: string | null;
+  url: string;
+  description: string;
+  image?: string;
+  source: "elcomercio";
+  publishedAt?: string;
 };
 
-const FEEDS = [
-  "https://elcomercio.pe/arcio/rss/?outputType=xml",
-  "https://elcomercio.pe/feed",
-];
+const UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
 
-const parser = new Parser({ timeout: 15000 });
-
-async function getFirstWorkingFeedXML(): Promise<string> {
-  for (const url of FEEDS) {
-    try {
-      // Cachea el XML 12h
-      const res = await fetch(url, { next: { revalidate: 43200 } });
-      if (!res.ok) continue;
-      const text = await res.text();
-      if (text.includes("<rss")) return text;
-    } catch {/* siguiente */}
-  }
-  throw new Error("No se pudo leer el RSS de El Comercio.");
+function stripSpaces(s: string): string {
+  return s.replace(/\s+/g, " ").trim();
+}
+function unescapeHTML(s: string): string {
+  return s
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
+}
+function cdataOrText(chunk: string, tag: string): string {
+  const re1 = new RegExp(`<${tag}>(?:<!\\[CDATA\\[)?([\\s\\S]*?)(?:\\]\\]>)?<\\/${tag}>`, "i");
+  const re2 = new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, "i");
+  const m = chunk.match(re1) || chunk.match(re2);
+  return m ? stripSpaces(unescapeHTML(m[1])) : "";
+}
+function findFirstAttr(chunk: string, tag: string, attr: string): string {
+  const m = chunk.match(new RegExp(`<${tag}[^>]*\\s${attr}="([^"]+)"[^>]*>`, "i"));
+  return m ? stripSpaces(m[1]) : "";
+}
+function extractFirstImg(html: string): string {
+  const m = html.match(/<img[^>]+src="([^"]+)"/i);
+  return m ? stripSpaces(m[1]) : "";
 }
 
-function getImageFromItem(item: any): string | null {
-  const enc = (item as any)?.enclosure;
-  if (enc && typeof enc.url === "string") return enc.url;
+function parseRss(xml: string): NewsItem[] {
+  const itemBlocks = Array.from(xml.matchAll(/<item\b[^>]*>([\s\S]*?)<\/item>/gi)).map((m) => m[1]);
+  const items: NewsItem[] = [];
 
-  const mediaContent = (item as any)["media:content"];
-  if (mediaContent && typeof mediaContent.url === "string") return mediaContent.url;
+  for (let i = 0; i < itemBlocks.length; i++) {
+    const chunk = itemBlocks[i];
 
-  const mediaThumb = (item as any)["media:thumbnail"];
-  if (mediaThumb && typeof mediaThumb.url === "string") return mediaThumb.url;
+    const title = cdataOrText(chunk, "title");
+    let link = cdataOrText(chunk, "link");
+    if (!/^https?:\/\//i.test(link)) {
+      const guid = cdataOrText(chunk, "guid");
+      if (/^https?:\/\//i.test(guid)) link = guid;
+    }
 
-  const html =
-    (item as any)["content:encoded"] ||
-    (item as any).content ||
-    (item as any).contentSnippet;
+    const descRaw = cdataOrText(chunk, "description");
+    const contentEncoded = cdataOrText(chunk, "content:encoded");
+    const description =
+      stripSpaces((descRaw || contentEncoded).replace(/<[^>]+>/g, "")) || "Noticia de El Comercio";
 
-  if (typeof html === "string") {
-    const $ = cheerio.load(html);
-    const src = $("img").first().attr("data-src") || $("img").first().attr("src") || null;
-    if (src) return src;
+    const image =
+      findFirstAttr(chunk, "enclosure", "url") ||
+      findFirstAttr(chunk, "media:content", "url") ||
+      findFirstAttr(chunk, "media:thumbnail", "url") ||
+      extractFirstImg(contentEncoded || descRaw) ||
+      undefined;
+
+    const publishedAt =
+      cdataOrText(chunk, "pubDate") || cdataOrText(chunk, "dc:date") || cdataOrText(chunk, "published") || undefined;
+
+    if (title && /^https?:\/\//i.test(link)) {
+      const safe = encodeURIComponent(link).replace(/[^a-z0-9]/gi, "").slice(-12);
+      items.push({
+        id: `ec-${i}-${safe || String(i)}`,
+        title,
+        url: link,
+        description,
+        image,
+        source: "elcomercio",
+        publishedAt,
+      });
+    }
   }
-  return null;
+
+  return items;
 }
 
-async function fetchOgImage(link: string): Promise<string | null> {
+async function fetchText(url: string): Promise<string> {
+  const res = await fetch(url, { headers: { "user-agent": UA }, next: { revalidate } });
+  return await res.text();
+}
+
+async function fetchElComercioBase(): Promise<NewsItem[]> {
+  // Intento 1
   try {
-    // También cachea el HTML del artículo 12h (por URL)
-    const res = await fetch(link, { next: { revalidate: 43200 } });
-    if (!res.ok) return null;
-    const html = await res.text();
-    const $ = cheerio.load(html);
-    const og =
-      $('meta[property="og:image"]').attr("content") ||
-      $('meta[name="twitter:image"]').attr("content") ||
-      null;
-    return og || null;
-  } catch {
-    return null;
-  }
-}
+    const xml = await fetchText("https://elcomercio.pe/feed");
+    const items = parseRss(xml);
+    if (items.length) return items;
+  } catch {}
 
-function cleanDescription(desc?: string): string {
-  if (!desc) return "";
-  const text = cheerio.load(`<div>${desc}</div>`)("div").text().replace(/\s+/g, " ").trim();
-  return text.length > 190 ? text.slice(0, 187) + "…" : text;
-}
-
-export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url);
-  const page = Math.max(1, Math.min(2, Number(searchParams.get("page") || "1")));
-  const pageSize = Math.max(1, Math.min(6, Number(searchParams.get("pageSize") || "6")));
-
+  // Intento 2 (feed alterno)
   try {
-    const xml = await getFirstWorkingFeedXML();
-    const feed = await parser.parseString(xml);
+    const xml = await fetchText("https://elcomercio.pe/arcio/rss/");
+    const items = parseRss(xml);
+    if (items.length) return items;
+  } catch {}
 
-    let items: ECItem[] =
-      (feed.items || []).map((it: any) => {
-        const link: string = it.link || "";
-        const id: string = it.guid || it.id || link || crypto.randomUUID();
-        const title: string = (it.title || "").toString().trim();
-        const isoDate: string | undefined = it.isoDate;
-        const image = getImageFromItem(it);
-        const description = cleanDescription(
-          it.contentSnippet || it.summary || it.content || it["content:encoded"]
-        );
-        return { id, title, link, isoDate, image, description };
-      }) || [];
+  return [];
+}
 
-    const seen = new Set<string>();
-    items = items.filter((x) => {
-      if (!x.link) return false;
-      if (seen.has(x.link)) return false;
-      seen.add(x.link);
-      return true;
+async function fetchGoogleNewsFallback(): Promise<NewsItem[]> {
+  const url = "https://news.google.com/rss/search?q=site:elcomercio.pe&hl=es-419&gl=PE&ceid=PE:es-419";
+  try {
+    const xml = await fetchText(url);
+    const parsed = parseRss(xml);
+    return parsed.map((n, idx) => {
+      const safe = encodeURIComponent(n.url).replace(/[^a-z0-9]/gi, "").slice(-12);
+      return { ...n, id: `ec-gn-${idx}-${safe}` };
     });
+  } catch {
+    return [];
+  }
+}
 
-    // Completa imágenes faltantes (limitado para no sobrecargar)
-    const candidates = items.slice(0, 14);
-    await Promise.all(
-      candidates.map(async (it) => {
-        if (!it.image) it.image = await fetchOgImage(it.link);
-      })
-    );
+async function enrichWithOgImage(items: NewsItem[], limit = 12): Promise<NewsItem[]> {
+  const out = [...items];
+  const n = Math.min(limit, out.length);
+  for (let i = 0; i < n; i++) {
+    if (out[i].image) continue;
+    const url = out[i].url;
+    try {
+      const html = await fetchText(url);
+      const m =
+        html.match(/<meta\s+property=["']og:image["']\s+content=["']([^"']+)["']/i) ||
+        html.match(/<meta\s+name=["']twitter:image["']\s+content=["']([^"']+)["']/i);
+      if (m && m[1]) out[i].image = stripSpaces(m[1]);
+    } catch {
+      // ignorar fallos por artículo
+    }
+  }
+  return out;
+}
 
-    items = items.slice(0, 12); // 2 páginas x 6
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const pageSize = Math.max(1, Math.min(6, Number(searchParams.get("pageSize") || 6)));
+  const page = Math.max(1, Number(searchParams.get("page") || 1));
 
-    const total = items.length;
-    const pageCount = Math.max(1, Math.min(2, Math.ceil(total / pageSize)));
-    const start = (page - 1) * pageSize;
-    const pageItems = items.slice(start, start + pageSize);
+  try {
+    const base = await fetchElComercioBase();
+    const primary = base.length ? base : await fetchGoogleNewsFallback();
+    if (!primary.length) {
+      return NextResponse.json({ items: [], page: 1, pageCount: 1, error: "El feed no devolvió ítems válidos" });
+    }
 
-    return NextResponse.json(
-      { items: pageItems, page, pageCount, total },
-      {
-        headers: {
-          // CDN (Vercel) cachea 12h; sirve stale 10 min mientras revalida
-          "Cache-Control": "public, s-maxage=43200, stale-while-revalidate=600",
-        },
-      }
-    );
-  } catch (e: any) {
-    return NextResponse.json(
-      { error: e?.message || "No se pudieron cargar noticias." },
-      { status: 500 }
-    );
+    // Completar imágenes que falten (hasta 12)
+    const enriched = await enrichWithOgImage(primary, 12);
+
+    // Paginación (máximo 12 ítems)
+    const capped = enriched.slice(0, 12);
+    const pageCount = Math.max(1, Math.ceil(capped.length / pageSize));
+    const safePage = Math.min(page, pageCount);
+    const start = (safePage - 1) * pageSize;
+    const items = capped.slice(start, start + pageSize);
+
+    return NextResponse.json({ items, page: safePage, pageCount, error: null }, { status: 200 });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return NextResponse.json({ items: [], page: 1, pageCount: 1, error: msg || "Error al cargar noticias" }, { status: 200 });
   }
 }

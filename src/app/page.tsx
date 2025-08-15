@@ -2,7 +2,7 @@ import Navbar from "@/components/Navbar";
 import PlayerCard from "@/components/PlayerCard";
 import { stations } from "@/data/stations";
 import Gallery from "@/components/Gallery";
-import NewsToday from "@/components/NewsToday";
+//import NewsToday from "@/components/NewsToday";//
 import ContactSection from "@/components/ContactSection";
 import ScrollVelocity from "@/components/ScrollVelocity";
 import CountOdometer from "@/components/CountOdometer";
@@ -101,8 +101,6 @@ export default function Page() {
         </div>
       </section>
 
-      {/* NOTICIAS DE HOY */}
-      <NewsToday />
 
       {/* NOSOTROS */}
       <section id="nosotros" className="scroll-mt-24 border-t border-white/10">
