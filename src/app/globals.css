@@ -1,0 +1,120 @@
+@import "tailwindcss";
+
+/* =========================
+   Tokens base
+   ========================= */
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+
+  /* Verde oficial (USS) */
+  --accent: #4ade80;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  /* Fuentes (del template de Next) */
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+/* Modo oscuro por defecto */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+/* =========================
+   Global
+   ========================= */
+html { scroll-behavior: smooth; }
+
+body {
+  color: var(--color-foreground);
+  background: var(--color-background);
+  font-family: var(--font-sans);
+}
+
+/* =========================
+   Slider moderno (volumen)
+   Usa la variable --p (0%–100%) para pintar el progreso.
+   ========================= */
+
+/* Base */
+input.modern-range {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  width: 100%;
+  height: 6px; /* fallback para algunos navegadores */
+}
+
+/* WebKit/Chromium */
+input.modern-range::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 9999px;
+  background: linear-gradient(
+    to right,
+    var(--accent) var(--p, 0%),
+    rgba(255, 255, 255, 0.25) var(--p, 0%)
+  );
+}
+input.modern-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  height: 18px;
+  width: 18px;
+  margin-top: -6px; /* centra el thumb en el track */
+  border-radius: 9999px;
+  background: var(--accent);
+  border: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .35);
+  cursor: pointer;
+}
+
+/* Firefox */
+input.modern-range::-moz-range-track {
+  height: 6px;
+  border-radius: 9999px;
+  background: linear-gradient(
+    to right,
+    var(--accent) var(--p, 0%),
+    rgba(255, 255, 255, 0.25) var(--p, 0%)
+  );
+}
+input.modern-range::-moz-range-thumb {
+  height: 18px;
+  width: 18px;
+  border: none;
+  border-radius: 9999px;
+  background: var(--accent);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .35);
+  cursor: pointer;
+}
+
+/* Quita halo azul en algunos navegadores al arrastrar */
+input.modern-range:focus { outline: none; }
+
+/* =========================
+   Estilos seguros para odómetro (opcional)
+   No usan hacks con "*", compatibles con Lightning CSS.
+   ========================= */
+.odometer {
+  display: inline-block;
+  vertical-align: middle;
+  position: relative;
+  font-variant-numeric: tabular-nums;
+}
+.odometer-inside {
+  display: inline-block;
+  white-space: nowrap;
+}
+.odometer-digit {
+  display: inline-block;
+  position: relative;
+}
+
+/* ❗ Import quebraba el build, NO lo uses:
+   @import "odometer/themes/odometer-theme-minimal.css";
+*/
