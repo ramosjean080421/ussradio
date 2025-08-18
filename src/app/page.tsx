@@ -67,7 +67,7 @@ export default function Page() {
           <div className="flex flex-col items-start gap-4 md:flex-row md:items-center md:justify-between">
             <div>
               <h2 className="text-2xl font-bold md:text-3xl">Emisoras</h2>
-              <p className="mt-2 text-white/70">Explora nuestras señales en vivo.</p>
+              <p className="mt-2 text-white/70">Escuchanos en vivo</p>
             </div>
 
             {/* Texto animado tipo Scroll Velocity */}
@@ -120,7 +120,7 @@ export default function Page() {
             <div className="order-1 md:order-2">
               <h2 className="text-2xl font-bold md:text-3xl">Nosotros</h2>
               <p className="mt-4 text-white/80">
-                <strong>RADIO USS</strong> es un proyecto universitario de radiodifusión
+                <strong>USSRadio</strong> es un proyecto universitario de radiodifusión
                 digital creado por estudiantes y docentes. Curamos música, producimos
                 contenidos culturales y cubrimos actividades de nuestra comunidad.
                 Nuestro objetivo es formar talento en producción sonora y ofrecer un
@@ -186,7 +186,7 @@ export default function Page() {
 
       <footer className="border-t border-white/10">
         <div className="mx-auto max-w-7xl px-4 py-8 text-sm text-white/60 md:px-6">
-          © {year} RADIO USS
+          © {year} USS RADIO
         </div>
       </footer>
     </div>

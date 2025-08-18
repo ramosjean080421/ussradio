@@ -12,7 +12,7 @@ export const stations: Station[] = [
   {
     id: "romantica",
     name: "Radio Romántica USS",
-    description: "Baladas y pop latino",
+    description: "Baladas en español",
     streamUrl: "https://stream.zeno.fm/fcocpujtg6kuv",
     imageUrl:
       "https://images.zeno.fm/krx4WHsrRUiQIs6hskwbNITNj-hfFBnW3AkspfIu7tU/rs:fit:170:170/g:ce:0:0/aHR0cHM6Ly9zdHJlYW0tdG9vbHMuemVub21lZGlhLmNvbS9jb250ZW50L3N0YXRpb25zLzcxNjljYWE3LWI3NGYtNDE2Zi04ZTEwLTJkN2Q3Y2E3M2RmMC9pbWFnZS8_dT0xNzU0NTQ1Mzg1NTIz.webp",
@@ -21,7 +21,7 @@ export const stations: Station[] = [
   },
   {
     id: "folclore",
-    name: "Radio Folclore",
+    name: "Folclore peruano",
     description: "Música andina y huayno",
     streamUrl: "https://stream.zeno.fm/2cryaopfrl2tv",
     imageUrl:

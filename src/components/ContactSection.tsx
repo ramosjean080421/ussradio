@@ -31,7 +31,6 @@ export default function ContactSection() {
             <ul className="mt-6 space-y-2 text-white/70">
               <li>• Audios cortos (15–30s) y sin música de fondo.</li>
               <li>• Cuéntanos tu nombre y distrito al empezar.</li>
-              <li>• Horario de cabina: Lun–Vie 9:00–20:00.</li>
             </ul>
 
             <div className="mt-6 flex flex-wrap gap-3">
