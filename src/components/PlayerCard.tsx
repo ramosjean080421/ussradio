@@ -19,8 +19,10 @@ class Perlin {
     const i1 = i0 + 1;
     const x0 = x - i0;
     const x1 = x0 - 1;
-    let t0 = 1 - x0 * x0; t0 *= t0;
-    let t1 = 1 - x1 * x1; t1 *= t1;
+    let t0 = 1 - x0 * x0;
+    t0 *= t0;
+    let t1 = 1 - x1 * x1;
+    t1 *= t1;
     const n0 = t0 * t0 * this.grad(this.perm[i0 & 0xff], x0);
     const n1 = t1 * t1 * this.grad(this.perm[i1 & 0xff], x1);
     return 0.395 * (n0 + n1); // ~[-1,1]
@@ -34,20 +36,62 @@ export default function PlayerCard({ station }: { station: Station }) {
   const [isLoading, setLoading] = useState(false);
   const [volume, setVolume] = useState(0.8);
   const [error, setError] = useState<string | null>(null);
+  // Estado para el nombre de la canción
+  const [songTitle, setSongTitle] = useState<string | null>(null);
 
   // Imagen (con fallback y sin referrer)
   const [imgSrc, setImgSrc] = useState(station.imageUrl);
   useEffect(() => setImgSrc(station.imageUrl), [station.imageUrl]);
 
-  // Pausar otras emisoras al reproducir esta
+  // Pausar otras emisoras al reproducir esta y reiniciar estados/búfer
   useEffect(() => {
     const onSomeonePlays = (e: Event) => {
       const id = (e as CustomEvent<any>).detail;
-      if (id !== station.id) audioRef.current?.pause();
+      if (id !== station.id) {
+        const a = audioRef.current;
+        if (a) {
+          a.pause();
+          // Restablecer estados de la tarjeta y vaciar búfer
+          setPlaying(false);
+          setLoading(false);
+          setError(null);
+          a.currentTime = 0;
+          // volver a asignar la misma URL limpia el buffer sin iniciar carga
+          a.src = station.streamUrl;
+        }
+      }
     };
     window.addEventListener("radio:play", onSomeonePlays as EventListener);
-    return () => window.removeEventListener("radio:play", onSomeonePlays as EventListener);
-  }, [station.id]);
+    return () =>
+      window.removeEventListener("radio:play", onSomeonePlays as EventListener);
+  }, [station.id, station.streamUrl]);
+
+  // Obtener metadata de la canción actual mediante SSE
+  useEffect(() => {
+    const slug = station.streamUrl.split("/").pop();
+    if (!slug) return;
+
+    // Abrir conexión SSE con Zeno para el punto de montaje
+    const es = new EventSource(
+      `https://api.zeno.fm/mounts/metadata/subscribe/${slug}`
+    );
+
+    es.onmessage = (event) => {
+      try {
+        const data = JSON.parse((event as MessageEvent).data);
+        if (data.streamTitle) {
+          setSongTitle(data.streamTitle);
+        }
+      } catch (err) {
+        console.warn("Error parsing stream metadata", err);
+      }
+    };
+
+    // Cerrar la conexión al desmontar o cambiar de estación
+    return () => {
+      es.close();
+    };
+  }, [station.streamUrl]);
 
   // Eventos del audio
   useEffect(() => {
@@ -55,10 +99,18 @@ export default function PlayerCard({ station }: { station: Station }) {
     if (!a) return;
     a.volume = volume;
 
-    const onPlaying = () => { setLoading(false); setPlaying(true); setError(null); };
+    const onPlaying = () => {
+      setLoading(false);
+      setPlaying(true);
+      setError(null);
+    };
     const onPause = () => setPlaying(false);
     const onWaiting = () => setLoading(true);
-    const onError = () => { setLoading(false); setPlaying(false); setError("No se pudo reproducir el stream."); };
+    const onError = () => {
+      setLoading(false);
+      setPlaying(false);
+      setError("No se pudo reproducir el stream.");
+    };
 
     a.addEventListener("playing", onPlaying);
     a.addEventListener("pause", onPause);
@@ -97,7 +149,8 @@ export default function PlayerCard({ station }: { station: Station }) {
     window.addEventListener("resize", onResize);
 
     const accent =
-      getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#4ade80";
+      getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() ||
+      "#4ade80";
     const noise = new Perlin();
     let t = 0;
 
@@ -120,15 +173,16 @@ export default function PlayerCard({ station }: { station: Station }) {
       for (let i = 0; i < points; i++) {
         const x = (i / (points - 1)) * w;
         const env = noise.getValue(i * envFreq + t);
-        const spikes = Math.sin(i * spikeFreq + t * 6) * 0.5 +
-                       Math.sin(i * spikeFreq * 1.7 + t * 9) * 0.5;
-        const m = env * (1 - spikeAmt) + (spikes) * spikeAmt;
+        const spikes =
+          Math.sin(i * spikeFreq + t * 6) * 0.5 +
+          Math.sin(i * spikeFreq * 1.7 + t * 9) * 0.5;
+        const m = env * (1 - spikeAmt) + spikes * spikeAmt;
         const y = cy - m * amp;
         xs.push(x);
         ysTop.push(y);
       }
 
-      const ysBottom = ysTop.map(y => cy + (cy - y));
+      const ysBottom = ysTop.map((y) => cy + (cy - y));
 
       ctx.beginPath();
       ctx.moveTo(xs[0], ysTop[0]);
@@ -152,7 +206,10 @@ export default function PlayerCard({ station }: { station: Station }) {
     if (isPlaying) {
       if (!rafRef.current) rafRef.current = requestAnimationFrame(draw);
     } else {
-      if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
       ctx.clearRect(0, 0, canvas.clientWidth, canvas.clientHeight);
     }
 
@@ -166,10 +223,17 @@ export default function PlayerCard({ station }: { station: Station }) {
   const togglePlay = async () => {
     const a = audioRef.current;
     if (!a) return;
-    if (isPlaying) return a.pause();
+    if (isPlaying) {
+      // Pausar como hasta ahora
+      return a.pause();
+    }
     try {
       setLoading(true);
+      // Notificar a otras emisoras para que se detengan
       window.dispatchEvent(new CustomEvent("radio:play", { detail: station.id } as any));
+      // Reiniciar el audio para conectar en vivo
+      a.currentTime = 0;
+      a.load();
       await a.play();
     } catch {
       setLoading(false);
@@ -190,7 +254,9 @@ export default function PlayerCard({ station }: { station: Station }) {
         decoding="async"
         referrerPolicy="no-referrer"
         onError={() =>
-          setImgSrc("https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=300&q=70&auto=format")
+          setImgSrc(
+            "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=300&q=70&auto=format"
+          )
         }
       />
     </div>
@@ -212,12 +278,18 @@ export default function PlayerCard({ station }: { station: Station }) {
           absolute right-3 top-3 z-30 pointer-events-none
           inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold
           border transition
-          ${isPlaying
-            ? "bg-red-600 text-white border-red-300/30 shadow-[0_0_20px_rgba(239,68,68,.35)]"
-            : "bg-black/60 text-white/60 border-white/10"}
+          ${
+            isPlaying
+              ? "bg-red-600 text-white border-red-300/30 shadow-[0_0_20px_rgba(239,68,68,.35)]"
+              : "bg-black/60 text-white/60 border-white/10"
+          }
         `}
       >
-        <span className={`block h-2 w-2 rounded-full ${isPlaying ? "bg-white animate-pulse" : "bg-white/40"}`} />
+        <span
+          className={`block h-2 w-2 rounded-full ${
+            isPlaying ? "bg-white animate-pulse" : "bg-white/40"
+          }`}
+        />
         ON AIR
       </div>
 
@@ -243,10 +315,18 @@ export default function PlayerCard({ station }: { station: Station }) {
         {station.description && (
           <p className="mt-1 text-sm text-white/70">{station.description}</p>
         )}
+        {/* Mostrar título de la canción cuando está reproduciendo */}
+        {isPlaying && songTitle && (
+          <p className="mt-1 text-xs text-[var(--accent)] truncate">{songTitle}</p>
+        )}
       </div>
 
       {/* Waveform simétrica (oculta hasta reproducir) */}
-      <div className={`mt-4 transition-all duration-300 ${isPlaying ? "opacity-100 h-20" : "opacity-0 h-0"}`}>
+      <div
+        className={`mt-4 transition-all duration-300 ${
+          isPlaying ? "opacity-100 h-20" : "opacity-0 h-0"
+        }`}
+      >
         <canvas ref={canvasRef} className="block h-20 w-full max-w-sm mx-auto" />
       </div>
 
