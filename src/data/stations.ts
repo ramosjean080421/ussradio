@@ -42,7 +42,7 @@ export const stations: Station[] = [
   {
     id: "rockpop",
     name: "Radio Rock & Pop",
-    description: "Clásicos de rock and roll y pop",
+    description: "Clásicos del Rock & Pop",
     streamUrl: "https://stream.zeno.fm/vth96t3szc9uv",
     imageUrl:
       "https://images.zeno.fm/D2LY5HHog1syxJ9KiyT4yFF1eR5aNcpqheZnI-A0dRk/rs:fit:170:170/g:ce:0:0/aHR0cHM6Ly9zdHJlYW0tdG9vbHMuemVub21lZGlhLmNvbS9jb250ZW50L3N0YXRpb25zL2FneHpmbnBsYm04dGMzUmhkSE55TWdzU0NrRjFkR2hEYkdsbGJuUVlnSUR3Z2FyQTVBc01DeElPVTNSaGRHbHZibEJ5YjJacGJHVVlnSUR3OGN5RnB3c01vZ0VFZW1WdWJ3L2ltYWdlLz91PTE3NTQ5NTkzOTM2NzU.webp",

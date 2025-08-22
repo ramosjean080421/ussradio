@@ -67,7 +67,7 @@ export default function Page() {
           <div className="flex flex-col items-start gap-4 md:flex-row md:items-center md:justify-between">
             <div>
               <h2 className="text-2xl font-bold md:text-3xl">Emisoras</h2>
-              <p className="mt-2 text-white/70">Escuchanos en vivo</p>
+              <p className="mt-2 text-white/70">Escúchanos en vivo</p>
             </div>
 
             {/* Texto animado tipo Scroll Velocity */}
