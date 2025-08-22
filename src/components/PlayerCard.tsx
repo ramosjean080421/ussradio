@@ -149,8 +149,11 @@ export default function PlayerCard({ station }: { station: Station }) {
     window.addEventListener("resize", onResize);
 
     const accent =
-      getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() ||
-      "#4ade80";
+      getComputedStyle(document.documentElement)
+        .getPropertyValue("--accent")
+        .trim() ||
+      "#69ee33"; // color de respaldo si no se encuentra la variable
+
     const noise = new Perlin();
     let t = 0;
 
@@ -315,9 +318,19 @@ export default function PlayerCard({ station }: { station: Station }) {
         {station.description && (
           <p className="mt-1 text-sm text-white/70">{station.description}</p>
         )}
-        {/* Mostrar título de la canción cuando está reproduciendo */}
+        {/* Mostrar título de la canción desplazándose cuando está reproduciendo */}
         {isPlaying && songTitle && (
-          <p className="mt-1 text-xs text-[var(--accent)] truncate">{songTitle}</p>
+          <div className="mt-1 text-xs text-[var(--accent)] w-full overflow-hidden">
+            <div
+              style={{
+                whiteSpace: "nowrap",
+                display: "inline-block",
+                animation: "scroll-left 12s linear infinite",
+              }}
+            >
+              {songTitle}
+            </div>
+          </div>
         )}
       </div>
 

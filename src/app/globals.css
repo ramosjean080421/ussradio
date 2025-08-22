@@ -6,7 +6,6 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
-
   /* Verde oficial (USS) */
   --accent: #69ee33;
 
@@ -117,4 +116,16 @@ input.modern-range:focus { outline: none; }
 
 /* ❗ Import quebraba el build, NO lo uses:
    @import "odometer/themes/odometer-theme-minimal.css";
-*/
+ */
+
+/* =========================
+   Animación para desplazar texto de la canción
+   ========================= */
+@keyframes scroll-left {
+  0% {
+    transform: translateX(100%);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
+}
