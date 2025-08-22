@@ -39,6 +39,10 @@ export default function PlayerCard({ station }: { station: Station }) {
   // Estado para el nombre de la canción
   const [songTitle, setSongTitle] = useState<string | null>(null);
 
+  // Referencia para medir el ancho del texto desplazado
+  const marqueeRef = useRef<HTMLDivElement | null>(null);
+  const [animationDuration, setAnimationDuration] = useState<number>(12);
+
   // Imagen (con fallback y sin referrer)
   const [imgSrc, setImgSrc] = useState(station.imageUrl);
   useEffect(() => setImgSrc(station.imageUrl), [station.imageUrl]);
@@ -92,6 +96,21 @@ export default function PlayerCard({ station }: { station: Station }) {
       es.close();
     };
   }, [station.streamUrl]);
+
+  // Ajustar la duración de la animación según el ancho del texto y del contenedor
+  useEffect(() => {
+    if (!marqueeRef.current || !songTitle) return;
+    const container = marqueeRef.current.parentElement;
+    if (!container) return;
+    const contentWidth = marqueeRef.current.offsetWidth;
+    const containerWidth = container.offsetWidth;
+    // Distancia total a recorrer: ancho del texto + ancho del contenedor
+    const distance = contentWidth + containerWidth;
+    // Velocidad constante en píxeles por segundo (ajusta este valor según el efecto que prefieras)
+    const speed = 50;
+    const duration = distance / speed;
+    setAnimationDuration(duration);
+  }, [songTitle]);
 
   // Eventos del audio
   useEffect(() => {
@@ -169,7 +188,7 @@ export default function PlayerCard({ station }: { station: Station }) {
       const envFreq = 0.06;
       const spikeFreq = 0.9;
       const spikeAmt = 0.22;
-      const speed = 0.018;
+      const speedWave = 0.018;
 
       const xs: number[] = [];
       const ysTop: number[] = [];
@@ -202,7 +221,7 @@ export default function PlayerCard({ station }: { station: Station }) {
       ctx.strokeStyle = accent;
       ctx.stroke();
 
-      t += speed;
+      t += speedWave;
       rafRef.current = requestAnimationFrame(draw);
     };
 
@@ -322,10 +341,11 @@ export default function PlayerCard({ station }: { station: Station }) {
         {isPlaying && songTitle && (
           <div className="mt-1 text-xs text-[var(--accent)] w-full overflow-hidden">
             <div
+              ref={marqueeRef}
               style={{
                 whiteSpace: "nowrap",
                 display: "inline-block",
-                animation: "scroll-left 12s linear infinite",
+                animation: `scroll-left ${animationDuration}s linear infinite`,
               }}
             >
               {songTitle}
